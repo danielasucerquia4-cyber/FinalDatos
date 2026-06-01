@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pipeline de Ventas con PySpark & Streamlit - Guía Interactiva</title>
+    <meta name="description" content="Guía detallada paso a paso para procesar archivos de ventas en formato CSV usando Apache Spark (PySpark) y visualizarlos en un dashboard interactivo de Streamlit.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-color: #0b0813;
+            --surface-color: rgba(20, 16, 35, 0.7);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --primary: #7c3aed;
+            --primary-glow: rgba(124, 58, 237, 0.4);
+            --secondary: #06b6d4;
+            --secondary-glow: rgba(6, 182, 212, 0.4);
+            --text-color: #f3f4f6;
+            --text-muted: #9ca3af;
+            --code-bg: #110e1b;
+            --accent: #ec4899;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Inter', sans-serif;
+            line-height: 1.6;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(124, 58, 237, 0.15) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(6, 182, 212, 0.15) 0%, transparent 40%);
+            background-attachment: fixed;
+            overflow-x: hidden;
+        }
+
+        header {
+            border-bottom: 1px solid var(--border-color);
+            background: rgba(11, 8, 19, 0.8);
+            backdrop-filter: blur(12px);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.2rem 2rem;
+        }
+
+        .logo {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.6rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s ease, text-shadow 0.3s ease;
+            font-size: 0.95rem;
+        }
+
+        .nav-links a:hover {
+            color: var(--text-color);
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+        }
+
+        main {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 3rem 2rem;
+        }
+
+        /* Hero Section */
+        .hero {
+            text-align: center;
+            padding: 4rem 1rem 6rem;
+            max-width: 800px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 300px;
+            height: 300px;
+            background: var(--primary-glow);
+            filter: blur(120px);
+            border-radius: 50%;
+            z-index: -1;
+            opacity: 0.6;
+        }
+
+        .hero h1 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 3.5rem;
+            line-height: 1.1;
+            margin-bottom: 1.5rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+        }
+
+        .hero h1 span {
+            background: linear-gradient(135deg, #a78bfa, #22d3ee);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero p {
+            font-size: 1.2rem;
+            color: var(--text-muted);
+            margin-bottom: 2.5rem;
+            font-weight: 300;
+        }
+
+        .hero-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 1.5rem;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.8rem 2rem;
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            border-radius: 12px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), #6366f1);
+            color: white;
+            box-shadow: 0 4px 20px var(--primary-glow);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(124, 58, 237, 0.6);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
+        }
+
+        /* Tech Stack Badges */
+        .tech-stack {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-top: 3rem;
+            flex-wrap: wrap;
+        }
+
+        .tech-badge {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-color);
+            padding: 0.5rem 1.2rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #d1d5db;
+            transition: all 0.3s ease;
+        }
+
+        .tech-badge:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.2);
+            transform: scale(1.05);
+        }
+
+        .tech-badge.spark { border-color: rgba(249, 115, 22, 0.3); }
+        .tech-badge.streamlit { border-color: rgba(239, 68, 68, 0.3); }
+        .tech-badge.python { border-color: rgba(59, 130, 246, 0.3); }
+
+        /* Steps Section */
+        .steps-container {
+            padding: 4rem 0;
+        }
+
+        .section-title {
+            font-family: 'Outfit', sans-serif;
+            text-align: center;
+            font-size: 2.2rem;
+            margin-bottom: 3rem;
+            position: relative;
+        }
+
+        .section-title::after {
+            content: '';
+            display: block;
+            width: 60px;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            margin: 0.8rem auto 0;
+            border-radius: 2px;
+        }
+
+        .interactive-guide {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 2.5rem;
+            background: var(--surface-color);
+            border: 1px solid var(--border-color);
+            border-radius: 24px;
+            padding: 2rem;
+            backdrop-filter: blur(16px);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+
+        .step-tabs {
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+            border-right: 1px solid var(--border-color);
+            padding-right: 2rem;
+        }
+
+        .step-tab {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            padding: 1rem 1.2rem;
+            text-align: left;
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.05rem;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 12px;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+        }
+
+        .step-tab span {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--primary);
+        }
+
+        .step-tab:hover {
+            background: rgba(255, 255, 255, 0.03);
+            color: var(--text-color);
+        }
+
+        .step-tab.active {
+            background: rgba(124, 58, 237, 0.1);
+            color: #c4b5fd;
+            border-left: 4px solid var(--primary);
+            padding-left: calc(1.2rem - 4px);
+        }
+
+        .step-content {
+            display: none;
+            animation: fadeIn 0.4s ease forwards;
+        }
+
+        .step-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .step-content h3 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.8rem;
+            margin-bottom: 1rem;
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+        }
+
+        .step-content p {
+            color: var(--text-muted);
+            margin-bottom: 1.5rem;
+            font-size: 1.05rem;
+        }
+
+        .code-container {
+            background: var(--code-bg);
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 16px;
+            padding: 1.5rem;
+            overflow-x: auto;
+            position: relative;
+            margin-bottom: 1.5rem;
+        }
+
+        .code-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 0.8rem;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            margin-bottom: 1rem;
+        }
+
+        .code-lang {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .copy-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            padding: 0.3rem 0.8rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .copy-btn:hover {
+            background: rgba(255,255,255,0.1);
+            color: var(--text-color);
+        }
+
+        pre code {
+            font-family: 'Fira Code', monospace;
+            font-size: 0.9rem;
+            color: #e5e7eb;
+        }
+
+        .highlight-keyword { color: #f43f5e; }
+        .highlight-string { color: #10b981; }
+        .highlight-comment { color: #6b7280; font-style: italic; }
+        .highlight-func { color: #06b6d4; }
+        .highlight-var { color: #fbbf24; }
+
+        /* Feature grid */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 4rem;
+        }
+
+        .feature-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 2.5rem 2rem;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, var(--primary-glow), transparent 60%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: -1;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            border-color: rgba(124, 58, 237, 0.3);
+        }
+
+        .feature-card:hover::before {
+            opacity: 0.15;
+        }
+
+        .feature-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1.5rem;
+            display: inline-block;
+        }
+
+        .feature-card h3 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.4rem;
+            margin-bottom: 1rem;
+            color: white;
+        }
+
+        .feature-card p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+
+        /* Console Simulation */
+        .console-mockup {
+            background: #09070f;
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 1.5rem;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.85rem;
+            color: #a7f3d0;
+            line-height: 1.5;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
+        }
+
+        .console-line {
+            margin-bottom: 0.3rem;
+        }
+
+        .console-prompt {
+            color: #8b5cf6;
+            margin-right: 0.5rem;
+        }
+
+        .console-white {
+            color: #f3f4f6;
+        }
+
+        /* Footer */
+        footer {
+            border-top: 1px solid var(--border-color);
+            padding: 3rem 2rem;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-top: 6rem;
+            background: rgba(11, 8, 19, 0.9);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 900px) {
+            .interactive-guide {
+                grid-template-columns: 1fr;
+            }
+            .step-tabs {
+                flex-direction: row;
+                border-right: none;
+                border-bottom: 1px solid var(--border-color);
+                padding-right: 0;
+                padding-bottom: 1.5rem;
+                overflow-x: auto;
+                white-space: nowrap;
+            }
+            .step-tab {
+                flex: 1;
+                min-width: 150px;
+                text-align: center;
+            }
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="nav-container">
+            <div class="logo">
+                <span>🔥</span> SparkFlow
+            </div>
+            <ul class="nav-links">
+                <li><a href="#proceso" id="link-proceso">El Proceso</a></li>
+                <li><a href="#caracteristicas" id="link-caracteristicas">Características</a></li>
+                <li><a href="#consola" id="link-consola">Ejecución</a></li>
+            </ul>
+        </div>
+    </header>
+
+    <main>
+        <!-- Hero Section -->
+        <section class="hero">
+            <h1>Procesamiento de Ventas con <span>PySpark & Streamlit</span></h1>
+            <p>Un pipeline de datos eficiente para cargar archivos CSV diariamente, realizar cálculos distribuidos, almacenar en formato estructurado Parquet y visualizar los resultados en un panel interactivo premium.</p>
+            <div class="hero-buttons">
+                <a href="#proceso" class="btn btn-primary" id="btn-comenzar">Ver Paso a Paso</a>
+                <a href="file:///c:/Users/USUARIO/Desktop/agente/tutorial_pyspark.md" class="btn btn-secondary" target="_blank">Documentación Completa</a>
+            </div>
+            
+            <div class="tech-stack">
+                <div class="tech-badge spark">⚡ Apache Spark 3.5.1</div>
+                <div class="tech-badge streamlit">🎈 Streamlit 1.35.0</div>
+                <div class="tech-badge python">🐍 Python 3.11</div>
+                <div class="tech-badge">📂 Parquet Format</div>
+            </div>
+        </section>
+
+        <!-- Step-by-Step Interactive Guide -->
+        <section id="proceso" class="steps-container">
+            <h2 class="section-title">Guía de Implementación Paso a Paso</h2>
+            
+            <div class="interactive-guide">
+                <div class="step-tabs">
+                    <button class="step-tab active" data-step="1">
+                        <span>Paso 01</span>
+                        Cargar el CSV
+                    </button>
+                    <button class="step-tab" data-step="2">
+                        <span>Paso 02</span>
+                        Columna Calculada
+                    </button>
+                    <button class="step-tab" data-step="3">
+                        <span>Paso 03</span>
+                        Salida en Parquet
+                    </button>
+                    <button class="step-tab" data-step="4">
+                        <span>Paso 04</span>
+                        Dashboard Streamlit
+                    </button>
+                </div>
+
+                <div class="step-contents">
+                    <!-- Step 1 -->
+                    <div class="step-content active" id="step-content-1">
+                        <h3>📂 1. Carga del Archivo CSV de Ventas</h3>
+                        <p>Iniciamos una <code>SparkSession</code> y cargamos el archivo CSV de ventas diarias. Utilizamos la inferencia automática del esquema de datos para asignar los tipos de datos correspondientes de manera dinámica.</p>
+                        
+                        <div class="code-container">
+                            <div class="code-header">
+                                <div class="code-lang">Python (pyspark)</div>
+                                <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+                            </div>
+                            <pre><code><span class="highlight-keyword">from</span> pyspark.sql <span class="highlight-keyword">import</span> SparkSession
+
+<span class="highlight-comment"># Iniciar la sesión de Spark</span>
+spark = SparkSession.builder \
+    .appName(<span class="highlight-string">"AnalisisVentas"</span>) \
+    .master(<span class="highlight-string">"local[*]"</span>) \
+    .getOrCreate()
+
+<span class="highlight-comment"># Cargar CSV con detección de cabecera y esquema automático</span>
+df = spark.read \
+    .option(<span class="highlight-string">"header"</span>, <span class="highlight-string">"true"</span>) \
+    .option(<span class="highlight-string">"inferSchema"</span>, <span class="highlight-string">"true"</span>) \
+    .csv(<span class="highlight-string">"ventas.csv"</span>)</code></pre>
+                        </div>
+                    </div>
+
+                    <!-- Step 2 -->
+                    <div class="step-content" id="step-content-2">
+                        <h3>🧮 2. Cálculo de la Columna total_venta</h3>
+                        <p>Calculamos el importe total de cada venta multiplicando la columna <code>cantidad</code> por <code>precio</code> empleando operaciones columnares nativas de Spark, optimizadas para procesamiento paralelo.</p>
+                        
+                        <div class="code-container">
+                            <div class="code-header">
+                                <div class="code-lang">Python (pyspark)</div>
+                                <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+                            </div>
+                            <pre><code><span class="highlight-keyword">from</span> pyspark.sql.functions <span class="highlight-keyword">import</span> col
+
+<span class="highlight-comment"># Agregar columna total_venta (cantidad * precio)</span>
+df_procesado = df.withColumn(
+    <span class="highlight-string">"total_venta"</span>, 
+    col(<span class="highlight-string">"cantidad"</span>) * col(<span class="highlight-string">"precio"</span>)
+)
+
+<span class="highlight-comment"># Mostrar resultados procesados en consola</span>
+df_procesado.show()</code></pre>
+                        </div>
+                    </div>
+
+                    <!-- Step 3 -->
+                    <div class="step-content" id="step-content-3">
+                        <h3>💾 3. Persistencia de Datos en Parquet</h3>
+                        <p>Guardamos el DataFrame resultante en formato de columnas comprimido **Parquet**. Esto reduce drásticamente el espacio de almacenamiento y acelera las futuras consultas analíticas de lectura.</p>
+                        
+                        <div class="code-container">
+                            <div class="code-header">
+                                <div class="code-lang">Python (pyspark)</div>
+                                <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+                            </div>
+                            <pre><code><span class="highlight-comment"># Guardar en formato columnar Parquet sobrescribiendo archivos previos</span>
+output_path = <span class="highlight-string">"output/ventas_procesadas.parquet"</span>
+
+df_procesado.write \
+    .mode(<span class="highlight-string">"overwrite"</span>) \
+    .parquet(output_path)</code></pre>
+                        </div>
+                    </div>
+
+                    <!-- Step 4 -->
+                    <div class="step-content" id="step-content-4">
+                        <h3>📊 4. Dashboard Interactivo de Visualización</h3>
+                        <p>Creamos un dashboard elegante con **Streamlit** y **Plotly** para importar el conjunto Parquet procesado, exhibir métricas clave (KPIs) y gráficos interactivos con soporte multidispositivo.</p>
+                        
+                        <div class="code-container">
+                            <div class="code-header">
+                                <div class="code-lang">Python (streamlit)</div>
+                                <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+                            </div>
+                            <pre><code><span class="highlight-keyword">import</span> streamlit <span class="highlight-keyword">as</span> st
+<span class="highlight-keyword">import</span> pandas <span class="highlight-keyword">as</span> pd
+<span class="highlight-keyword">import</span> plotly.express <span class="highlight-keyword">as</span> px
+<span class="highlight-keyword">import</span> glob
+
+<span class="highlight-comment"># Cargar archivos parquet procesados</span>
+archivos = glob.glob(<span class="highlight-string">"output/ventas_procesadas.parquet/*.parquet"</span>)
+df = pd.concat([pd.read_parquet(f) <span class="highlight-keyword">for</span> f <span class="highlight-keyword">in</span> archivos])
+
+<span class="highlight-comment"># Layout e interfaz de Streamlit</span>
+st.title(<span class="highlight-string">"📊 Dashboard de Ventas"</span>)
+st.metric(<span class="highlight-string">"Ingresos Totales"</span>, f<span class="highlight-string">"${df['total_venta'].sum():,}"</span>)
+
+fig = px.bar(df, x=<span class="highlight-string">"producto"</span>, y=<span class="highlight-string">"total_venta"</span>, color=<span class="highlight-string">"producto"</span>)
+st.plotly_chart(fig)</code></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Features Grid -->
+        <section id="caracteristicas" style="padding: 4rem 0;">
+            <h2 class="section-title">Beneficios del Stack Tecnológico</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <span class="feature-icon">⚡</span>
+                    <h3>Procesamiento Distribuido</h3>
+                    <p>Spark ejecuta transformaciones perezosas (lazy transformations) mapeando tareas concurrentes a nivel de CPU local o clusters distribuidos.</p>
+                </div>
+                <div class="feature-card">
+                    <span class="feature-icon">🗂️</span>
+                    <h3>Almacenamiento Columnar</h3>
+                    <p>Parquet almacena esquemas integrados comprimidos y soporta proyecciones y pushdown-predicates para leer exclusivamente los datos necesarios.</p>
+                </div>
+                <div class="feature-card">
+                    <span class="feature-icon">🎨</span>
+                    <h3>Experiencia de Usuario Premium</h3>
+                    <p>Streamlit proporciona renderizado inmediato y reactivo acoplándose sin fisuras a motores gráficos de alta gama como Plotly.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Console simulation section -->
+        <section id="consola" style="padding: 4rem 0;">
+            <h2 class="section-title">Ejecución del Flujo de Datos</h2>
+            <div class="console-mockup">
+                <div class="console-line"><span class="console-prompt">$</span>python pyspark_ventas.py</div>
+                <div class="console-line console-white">📂 Schema del CSV cargado:</div>
+                <div class="console-line console-white"> |-- id_venta: integer (nullable = true)</div>
+                <div class="console-line console-white"> |-- producto: string (nullable = true)</div>
+                <div class="console-line console-white"> |-- cantidad: integer (nullable = true)</div>
+                <div class="console-line console-white"> |-- precio: integer (nullable = true)</div>
+                <div class="console-line console-white"></div>
+                <div class="console-line console-white">✅ Datos con total_venta calculado:</div>
+                <div class="console-line console-white">+--------+--------+--------+------+-----------+</div>
+                <div class="console-line console-white">|id_venta|producto|cantidad|precio|total_venta|</div>
+                <div class="console-line console-white">+--------+--------+--------+------+-----------+</div>
+                <div class="console-line console-white">|       1|  Laptop|       2|  2500|       5000|</div>
+                <div class="console-line console-white">|       2|   Mouse|       5|    50|        250|</div>
+                <div class="console-line console-white">|       3| Teclado|       3|   120|        360|</div>
+                <div class="console-line console-white">+--------+--------+--------+------+-----------+</div>
+                <div class="console-line console-white"></div>
+                <div class="console-line">💾 Archivo Parquet guardado con éxito en: output/ventas_procesadas.parquet</div>
+                <div class="console-line"><span class="console-prompt">$</span>streamlit run app.py</div>
+                <div class="console-line console-white">  You can now view your Streamlit app in your browser.</div>
+                <div class="console-line console-white">  Local URL: http://localhost:8501</div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2026 Pipeline de Análisis de Ventas con PySpark & Streamlit. Todos los derechos reservados.</p>
+        <p style="margin-top: 0.5rem; font-size: 0.8rem; color: var(--text-muted);">Construido con HTML5, CSS3 Custom Properties y Vanilla JS.</p>
+    </footer>
+
+    <script>
+        // Tab switching logic
+        const tabs = document.querySelectorAll('.step-tab');
+        const contents = document.querySelectorAll('.step-content');
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const targetStep = tab.getAttribute('data-step');
+                
+                // Remove active class from all tabs & contents
+                tabs.forEach(t => t.classList.remove('active'));
+                contents.forEach(c => c.classList.remove('active'));
+                
+                // Add active class to selected tab & content
+                tab.classList.add('active');
+                document.getElementById(`step-content-${targetStep}`).classList.add('active');
+            });
+        });
+
+        // Copy code helper function
+        function copyCode(button) {
+            const pre = button.parentElement.nextElementSibling;
+            const code = pre.querySelector('code').innerText;
+            
+            navigator.clipboard.writeText(code).then(() => {
+                const originalText = button.innerText;
+                button.innerText = '¡Copiado!';
+                button.style.backgroundColor = 'rgba(16, 185, 129, 0.2)';
+                button.style.color = '#10b981';
+                
+                setTimeout(() => {
+                    button.innerText = originalText;
+                    button.style.backgroundColor = '';
+                    button.style.color = '';
+                }, 2000);
+            }).catch(err => {
+                console.error('Error al copiar el código: ', err);
+            });
+        }
+    </script>
+</body>
+</html>
